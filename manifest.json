@@ -1,0 +1,10 @@
+{
+  "id": "inklings-focus",
+  "name": "Inklings Focus",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Surface one inkling at a time; add today’s entry and snooze.",
+  "author": "spaced-writing",
+  "isDesktopOnly": false
+}
+
