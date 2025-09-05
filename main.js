@@ -272,14 +272,26 @@ var FocusView = class extends import_obsidian3.ItemView {
   }
   renderControls() {
     this.controlsEl.empty();
-    const snoozeTarget = addDaysISO(todayLocalISO(), this.plugin.settings.snoozeDays);
-    this.addBtnEl = this.controlsEl.createEl("button", { text: "+ Add", cls: "fab control-add" });
+    const snoozeDays = this.plugin.settings.snoozeDays;
+    this.addBtnEl = this.controlsEl.createEl("button", {
+      text: "+",
+      cls: "fab control-add",
+      attr: { "aria-label": "Add entry" }
+    });
     this.addBtnEl.addEventListener("click", () => this.openNewEntryModal());
-    this.prevBtnEl = this.controlsEl.createEl("button", { text: "Previous", cls: "btn nav-left control-prev" });
+    this.prevBtnEl = this.controlsEl.createEl("button", {
+      text: "<",
+      cls: "btn nav-left control-prev",
+      attr: { "aria-label": "Previous" }
+    });
     this.prevBtnEl.addEventListener("click", () => this.prev());
-    this.snoozeBtnEl = this.controlsEl.createEl("button", { text: `Snooze ${snoozeTarget}`, cls: "btn control-snooze" });
+    this.snoozeBtnEl = this.controlsEl.createEl("button", { text: `Snooze for ${snoozeDays}d`, cls: "btn control-snooze" });
     this.snoozeBtnEl.addEventListener("click", () => this.snoozeCurrent());
-    this.nextBtnEl = this.controlsEl.createEl("button", { text: "Next", cls: "btn nav-right control-next" });
+    this.nextBtnEl = this.controlsEl.createEl("button", {
+      text: ">",
+      cls: "btn nav-right control-next",
+      attr: { "aria-label": "Next" }
+    });
     this.nextBtnEl.addEventListener("click", () => this.next());
   }
   async renderCurrent() {
@@ -295,8 +307,15 @@ var FocusView = class extends import_obsidian3.ItemView {
     this.updateControlsForFilePresence(true);
     const md = await this.app.vault.read(file);
     const wrapper = this.contentElDiv.createDiv();
-    const titleEl = wrapper.createEl("h1", { text: file.basename });
+    const headerRow = wrapper.createDiv({ cls: "title-row" });
+    const titleEl = headerRow.createEl("h1", { text: file.basename });
     titleEl.addClass("inline-title");
+    const newBtn = headerRow.createEl("button", {
+      cls: "title-new-btn",
+      text: "New",
+      attr: { "aria-label": "Create inkling", type: "button" }
+    });
+    newBtn.addEventListener("click", () => this.createInkling());
     const bodyEl = wrapper.createDiv();
     await import_obsidian3.MarkdownRenderer.renderMarkdown(md, bodyEl, file.path, this);
   }

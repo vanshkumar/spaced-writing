@@ -8,6 +8,27 @@
   overflow: auto;
   padding: 1rem;
 }
+.inklings-focus .title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.inklings-focus .inline-title {
+  margin: 0;
+}
+.inklings-focus .title-new-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  font-size: 13px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-modifier-form-field);
+  color: var(--text-normal);
+  border-radius: 6px;
+  cursor: pointer;
+}
 .inklings-focus .controls {
   display: flex;
   align-items: center;
@@ -17,6 +38,27 @@
   border-top: 1px solid var(--background-modifier-border);
   position: relative;
 }
+/* Bottom bar adjustments (only the persistent controls at the bottom) */
+.inklings-focus > .controls {
+  align-items: flex-end;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 2px);
+}
+.inklings-focus .icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-modifier-form-field);
+  color: var(--text-normal);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.inklings-focus .icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
 .inklings-focus .fab {
   background: var(--interactive-accent);
   color: var(--text-on-accent);
@@ -25,6 +67,17 @@
   padding: 10px 14px;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+/* Make the '+' control 30% larger */
+.inklings-focus .fab.control-add {
+  font-size: 130%;
+  width: 36px;
+  height: 36px;
+  padding: 0;
 }
 .inklings-focus .btn {
   background: var(--background-modifier-form-field);
@@ -33,6 +86,17 @@
   border-radius: 999px;
   padding: 8px 12px;
   cursor: pointer;
+}
+.inklings-focus .btn.control-prev,
+.inklings-focus .btn.control-next {
+  min-width: 36px;
+  padding: 6px 10px;
+  font-size: 120%;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .inklings-focus .nav-left {
   position: absolute;
@@ -53,19 +117,37 @@
 
 /* Mobile adjustments */
 @media (max-width: 640px) {
+  .inklings-focus .icon-btn { width: 26px; height: 26px; }
+  .inklings-focus .title-new-btn { font-size: 12px; padding: 4px 8px; }
   .inklings-focus .controls {
     gap: 8px;
     padding: 8px 10px;
     flex-wrap: wrap;
     justify-content: space-between;
   }
+  .inklings-focus > .controls {
+    align-items: flex-end;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 2px);
+  }
   .inklings-focus .btn {
     padding: 6px 10px;
     font-size: 12px;
   }
+  .inklings-focus .btn.control-prev,
+  .inklings-focus .btn.control-next {
+    min-width: 32px;
+    font-size: 120%;
+    padding: 6px 10px;
+  }
   .inklings-focus .fab {
     padding: 8px 12px;
     font-size: 13px;
+  }
+  .inklings-focus .fab.control-add {
+    font-size: 130%;
+    width: 32px;
+    height: 32px;
+    padding: 0;
   }
   /* Reflow nav buttons so +Add is visible and centered */
   .inklings-focus .nav-left,
