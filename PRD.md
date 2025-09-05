@@ -9,7 +9,7 @@ Surface **one inkling at a time** from your Obsidian vault so you can quickly ad
 * Obsidian plugin (mobile + desktop).
 * One-screen **Focus View** with:
 
-  * Title (H1).
+  * Title.
   * Reverse-chronological dated sections:
 
     * **`YYYY-MM-DD`** (small, gray header).
@@ -41,15 +41,12 @@ Surface **one inkling at a time** from your Obsidian vault so you can quickly ad
 * **Body (reverse chronological)**
 
   ```md
-  # <Title>
-
   ### 2025-09-05
   Today’s blurb…
 
   ### 2025-08-27
   Earlier thought…
   ```
-* **First date section** ever added is implicitly the “seed”. No special handling or labeling.
 * Plugin **never writes** `lastmod` (reads it if present but ignores for logic).
 
 ## 5) Actions & flows
@@ -105,7 +102,7 @@ Screenshot: ![alt text](image-1.png)
 ## 8) UI details
 
 * Follow Obsidian light/dark.
-* Title: large H1.
+* Title.
 * Date header: system caption color, `YYYY-MM-DD`, smaller than body.
 * Body: regular text; paragraphs separated by a blank line.
 * Bottom: centered **FAB “+”**; right **Snooze** pill with ISO date.

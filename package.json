@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "node esbuild.config.mjs production",
+    "postbuild": "node scripts/deploy.mjs",
+    "deploy": "node scripts/deploy.mjs",
     "lint": "eslint .",
     "format": "prettier -w .",
     "test": "vitest"

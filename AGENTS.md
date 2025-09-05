@@ -20,10 +20,14 @@ scripts/         // build helpers (optional)
 ## Build, Test, and Run
 
 - Install: `npm install`
-- Build: `npm run build` — bundles `src/` to `main.js` (production config).
+- Build: `npm run build` — bundles `src/` to `main.js` and auto-deploys to your Obsidian plugins folder.
 - Test: `npm test` — unit tests (if present).
 - Lint/Format: `npm run lint` and `npm run format` before pushing.
 - Local Obsidian test: symlink the repo to your vault: `ln -s "$(pwd)" /path/to/Vault/.obsidian/plugins/inklings-focus` then reload plugins in Obsidian.
+
+Deployment notes
+- Default deploy path (macOS iCloud): `$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/Personal/.obsidian/plugins/inklings-focus`
+- Override destination: set `OBSIDIAN_PLUGINS_DIR` env var before build.
 
 ## Coding Style & Naming Conventions
 

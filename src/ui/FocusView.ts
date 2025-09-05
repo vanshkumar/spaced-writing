@@ -21,7 +21,10 @@ export class FocusView extends ItemView {
   private index = 0; // current position in deck
   private contentElDiv!: HTMLElement;
   private controlsEl!: HTMLElement;
-  private swipe = { active: false, startX: 0, startY: 0, hasSwiped: false, pointerId: undefined as number | undefined };
+  private addBtnEl!: HTMLElement;
+  private prevBtnEl!: HTMLElement;
+  private snoozeBtnEl!: HTMLElement;
+  private nextBtnEl!: HTMLElement;
 
   constructor(leaf: WorkspaceLeaf, plugin: InklingsFocusPlugin) {
     super(leaf);
@@ -46,21 +49,18 @@ export class FocusView extends ItemView {
     this.renderControls();
     await this.rebuildDeck();
 
-    // Keyboard navigation
+    // Keyboard navigation (prev/next)
     this.registerDomEvent(window, "keydown", (e) => {
       if (e.key === "ArrowLeft") {
         e.preventDefault();
         e.stopPropagation();
-        this.prev();
+        void this.prev();
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
         e.stopPropagation();
-        this.next();
+        void this.next();
       }
     });
-
-    // Touch/Pointer swipe navigation on mobile
-    this.setupSwipeHandlers();
   }
 
   async rebuildDeck() {
@@ -73,14 +73,19 @@ export class FocusView extends ItemView {
     this.controlsEl.empty();
     const snoozeTarget = addDaysISO(todayLocalISO(), this.plugin.settings.snoozeDays);
 
-    const addBtn = this.controlsEl.createEl("button", { text: "+ Add", cls: "fab" });
-    addBtn.addEventListener("click", () => this.openNewEntryModal());
+    this.addBtnEl = this.controlsEl.createEl("button", { text: "+ Add", cls: "fab control-add" });
+    this.addBtnEl.addEventListener("click", () => this.openNewEntryModal());
 
-    const snoozeBtn = this.controlsEl.createEl("button", { text: `Snooze ${snoozeTarget}`, cls: "btn" });
-    snoozeBtn.addEventListener("click", () => this.snoozeCurrent());
+    // Prev / Next nav buttons anchored left/right
+    this.prevBtnEl = this.controlsEl.createEl("button", { text: "Previous", cls: "btn nav-left control-prev" });
+    this.prevBtnEl.addEventListener("click", () => this.prev());
 
-    const hint = this.controlsEl.createEl("div", { text: "← / → to navigate", cls: "hint" });
-    hint.setAttr("aria-hidden", "true");
+    this.snoozeBtnEl = this.controlsEl.createEl("button", { text: `Snooze ${snoozeTarget}`, cls: "btn control-snooze" });
+    this.snoozeBtnEl.addEventListener("click", () => this.snoozeCurrent());
+
+    this.nextBtnEl = this.controlsEl.createEl("button", { text: "Next", cls: "btn nav-right control-next" });
+    this.nextBtnEl.addEventListener("click", () => this.next());
+    // Hint/tooltip removed on request
   }
 
   async renderCurrent() {
@@ -88,15 +93,23 @@ export class FocusView extends ItemView {
     const file = this.deck[this.index];
     if (!file) {
       this.renderEmptyState();
-      // Hide main controls when no active item
-      this.controlsEl.style.display = "none";
+      // Show controls bar but keep only Previous visible at end of deck
+      this.controlsEl.style.display = "flex";
+      this.updateControlsForFilePresence(false);
       return;
     }
 
     this.controlsEl.style.display = "flex";
+    this.updateControlsForFilePresence(true);
     const md = await this.app.vault.read(file);
     const wrapper = this.contentElDiv.createDiv();
-    await MarkdownRenderer.renderMarkdown(md, wrapper, file.path, this);
+
+    // Inline title to mirror Obsidian's reading view title display.
+    const titleEl = wrapper.createEl("h1", { text: file.basename });
+    titleEl.addClass("inline-title");
+
+    const bodyEl = wrapper.createDiv();
+    await MarkdownRenderer.renderMarkdown(md, bodyEl, file.path, this);
   }
 
   private renderEmptyState() {
@@ -117,7 +130,7 @@ export class FocusView extends ItemView {
     if (!title) return;
     const folder = this.plugin.settings.folder.replace(/^\/+|\/+$/g, "");
     const path = `${folder}/${sanitizeFileName(title)}.md`;
-    const body = `# ${title}\n\n`; // no frontmatter by default
+    const body = ""; // body starts empty; title is filename only
     const file = await this.app.vault.create(path, body);
     await this.rebuildDeck();
     // Focus this file if present in deck
@@ -177,102 +190,27 @@ export class FocusView extends ItemView {
     }
   }
 
-  private setupSwipeHandlers() {
-    const area = this.contentElDiv;
-    // Pointer events (modern)
-    this.registerDomEvent(area, "pointerdown", (ev) => {
-      const e = ev as PointerEvent;
-      if ((e as any).pointerType === "mouse") return; // prefer keyboard/clicks for mouse
-      this.swipe.active = true;
-      this.swipe.hasSwiped = false;
-      this.swipe.pointerId = e.pointerId;
-      this.swipe.startX = e.clientX;
-      this.swipe.startY = e.clientY;
-    });
-    this.registerDomEvent(
-      area,
-      "pointermove",
-      (ev) => {
-        const e = ev as PointerEvent;
-        if (!this.swipe.active || this.swipe.pointerId !== e.pointerId) return;
-        const dx = e.clientX - this.swipe.startX;
-        const dy = e.clientY - this.swipe.startY;
-        if (this.swipe.hasSwiped) {
-          e.preventDefault();
-          e.stopPropagation();
-          return;
-        }
-        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.3) {
-          this.swipe.hasSwiped = true;
-          e.preventDefault();
-          e.stopPropagation();
-          if (dx < 0) this.next();
-          else this.prev();
-        }
-      },
-      { passive: false } as any
-    );
-    this.registerDomEvent(area, "pointerup", (ev) => {
-      const e = ev as PointerEvent;
-      if (this.swipe.pointerId !== e.pointerId) return;
-      this.swipe.active = false;
-      this.swipe.pointerId = undefined;
-      this.swipe.hasSwiped = false;
-    });
-    this.registerDomEvent(area, "pointercancel", () => {
-      this.swipe.active = false;
-      this.swipe.pointerId = undefined;
-      this.swipe.hasSwiped = false;
-    });
+  // Swiping removed intentionally; navigation via buttons or arrow keys only.
 
-    // Touch events fallback
-    this.registerDomEvent(area, "touchstart", (ev) => {
-      const e = ev as TouchEvent;
-      if (e.touches.length !== 1) return;
-      const t = e.touches[0];
-      this.swipe.active = true;
-      this.swipe.hasSwiped = false;
-      this.swipe.startX = t.clientX;
-      this.swipe.startY = t.clientY;
-    });
-    this.registerDomEvent(
-      area,
-      "touchmove",
-      (ev) => {
-        const e = ev as TouchEvent;
-        if (!this.swipe.active || e.touches.length !== 1) return;
-        const t = e.touches[0];
-        const dx = t.clientX - this.swipe.startX;
-        const dy = t.clientY - this.swipe.startY;
-        if (this.swipe.hasSwiped) {
-          e.preventDefault();
-          e.stopPropagation();
-          return;
-        }
-        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.3) {
-          this.swipe.hasSwiped = true;
-          e.preventDefault();
-          e.stopPropagation();
-          if (dx < 0) this.next();
-          else this.prev();
-        }
-      },
-      { passive: false } as any
-    );
-    this.registerDomEvent(area, "touchend", () => {
-      this.swipe.active = false;
-      this.swipe.hasSwiped = false;
-    });
-    this.registerDomEvent(area, "touchcancel", () => {
-      this.swipe.active = false;
-      this.swipe.hasSwiped = false;
-    });
+  private updateControlsForFilePresence(hasFile: boolean) {
+    if (!this.prevBtnEl || !this.nextBtnEl || !this.snoozeBtnEl || !this.addBtnEl) return;
+    // Always show Previous
+    this.prevBtnEl.style.display = "inline-flex";
+    // Show others only when a file is active
+    const show = hasFile ? "inline-flex" : "none";
+    this.nextBtnEl.style.display = show;
+    this.snoozeBtnEl.style.display = show;
+    this.addBtnEl.style.display = show;
   }
 }
 
 function sanitizeFileName(name: string): string {
   return name.replace(/[\\/:*?"<>|]/g, "_").trim();
 }
+
+// Toggle visibility of controls depending on whether there is an active file
+// Always keep Previous visible so you can navigate back from the empty state.
+// (no-op helpers outside class)
 
 async function promptTitle(app: App): Promise<string | null> {
   return new Promise((resolve) => {

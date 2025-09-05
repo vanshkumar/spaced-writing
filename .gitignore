@@ -2,9 +2,7 @@
 node_modules/
 
 # Build artifacts
-# Keep built main.js committed for Obsidian BRAT
-# main.js.map can remain ignored (not required by Obsidian)
-# Remove the next line if you want to commit source maps too
+main.js
 main.js.map
 dist/
 build/
