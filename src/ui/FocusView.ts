@@ -118,23 +118,22 @@ export class FocusView extends ItemView {
     this.controlsEl.style.display = "flex";
     this.updateControlsForFilePresence(true);
     const md = await this.app.vault.read(file);
-    const wrapper = this.contentElDiv.createDiv();
+    const wrapper = this.contentElDiv.createDiv({ cls: "note-wrapper" });
 
     // Title row with inline title (click to rename) and a 'New' button to create a new inkling
     const headerRow = wrapper.createDiv({ cls: "title-row" });
     const titleEl = headerRow.createEl("h1", { text: file.basename });
     titleEl.addClass("inline-title");
     titleEl.addEventListener("click", () => this.renameCurrentTitle());
-    const newBtn = headerRow.createEl("button", {
-      cls: "title-new-btn",
+    // Top-right action buttons (absolute positioned)
+    const actionsTop = wrapper.createDiv({ cls: "title-actions" });
+    const newBtn = actionsTop.createEl("button", {
+      cls: "icon-btn title-new-btn",
       text: "New",
       attr: { 'aria-label': "Create inkling", type: "button" },
     });
     newBtn.addEventListener("click", () => this.createInkling());
-
-    // Row under the title for actions like Snooze
-    const actionsRow = wrapper.createDiv({ cls: "header-actions" });
-    this.snoozeHeaderBtnEl = actionsRow.createEl("button", {
+    this.snoozeHeaderBtnEl = actionsTop.createEl("button", {
       cls: "icon-btn title-snooze-btn",
       text: "zzz",
       attr: { 'aria-label': "Snooze" },

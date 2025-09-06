@@ -8,6 +8,18 @@
   overflow: auto;
   padding: 1rem;
 }
+/* Ensure title actions can be anchored in the top-right */
+.inklings-focus .note-wrapper { position: relative; }
+.inklings-focus .title-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px; /* increased spacing to avoid mis-taps */
+  z-index: 1;
+}
 /* Date headers (### YYYY-MM-DD) should be subtle and smaller than body */
 /* Focus-only date header style: use smaller, muted h6 for date sections */
 .inklings-focus .content h6 {
@@ -21,27 +33,12 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-}
-.inklings-focus .header-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin: 4px 0 8px;
+  padding-right: 44px; /* narrower space for stacked actions */
 }
 .inklings-focus .inline-title {
   margin: 0;
 }
-.inklings-focus .title-new-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 10px;
-  font-size: 13px;
-  border: 1px solid var(--background-modifier-border);
-  background: var(--background-modifier-form-field);
-  color: var(--text-normal);
-  border-radius: 6px;
-  cursor: pointer;
-}
+.inklings-focus .title-new-btn { font-size: 12px; padding: 0; }
 /* Title input in 'Create inkling' modal */
 .inklings-title-input {
   width: 100%;
@@ -146,8 +143,9 @@
 /* Mobile adjustments */
 @media (max-width: 640px) {
   .inklings-focus .icon-btn { width: 26px; height: 26px; }
-  .inklings-focus .title-new-btn { font-size: 12px; padding: 4px 8px; }
+  .inklings-focus .title-new-btn { font-size: 11px; padding: 0; }
   .inklings-focus .title-snooze-btn { font-size: 11px; }
+  .inklings-focus .title-row { padding-right: 36px; }
   .inklings-focus .controls {
     gap: 8px;
     padding: 8px 10px;
