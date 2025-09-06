@@ -1,53 +1,46 @@
-# Repository Guidelines
+# Repository Guidelines — Inklings Focus (as built)
 
-These guidelines keep contributions to spaced-writing (Obsidian plugin: “Inklings Focus”) consistent and easy to review. The repo is light today; use this structure and conventions when adding code.
+These notes reflect the current, personal plugin setup — only what’s implemented today.
 
-## Project Structure & Module Organization
+## Project Structure
 
 ```
 manifest.json    // Obsidian plugin manifest
 versions.json    // Obsidian compatibility map
-styles.css       // plugin styles (optional)
+styles.css       // Plugin styles
 src/             // TypeScript source (entry: main.ts)
-  core/          // deck building, snooze, parsing
+  core/          // deck building, snooze, markdown helpers
   ui/            // Focus view components
-  obsidian/      // adapters to Vault API
-tests/           // unit/integration tests mirroring src
 assets/          // screenshots, icons
-scripts/         // build helpers (optional)
+scripts/         // build helpers (deploy script)
 ```
 
-## Build, Test, and Run
+## Build & Run
 
 - Install: `npm install`
-- Build: `npm run build` — bundles `src/` to `main.js` and auto-deploys to your Obsidian plugins folder.
-- Test: `npm test` — unit tests (if present).
-- Lint/Format: `npm run lint` and `npm run format` before pushing.
-- Local Obsidian test: symlink the repo to your vault: `ln -s "$(pwd)" /path/to/Vault/.obsidian/plugins/inklings-focus` then reload plugins in Obsidian.
+- Build: `npm run build` — bundles `src/` to `main.js` and auto‑deploys to your Obsidian plugins folder.
+- Reload in Obsidian: toggle the plugin off/on after each build to pick up changes.
+- Local Obsidian test: symlink the repo into your vault:
+  - `ln -s "$(pwd)" /path/to/Vault/.obsidian/plugins/inklings-focus`
+- Quick open: deep link `obsidian://inklings-focus` (use in iOS Shortcuts).
 
-Deployment notes
+Deployment
 - Default deploy path (macOS iCloud): `$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/Personal/.obsidian/plugins/inklings-focus`
-- Override destination: set `OBSIDIAN_PLUGINS_DIR` env var before build.
+- Override destination: set `OBSIDIAN_PLUGINS_DIR` before `npm run build`.
 
-## Coding Style & Naming Conventions
+## Coding Style
 
-- Language: TypeScript preferred; 2-space indentation.
-- Naming: camelCase for vars/functions; PascalCase for classes/types; kebab-case for file and folder names.
-- Tools: ESLint (recommended rules) + Prettier. Keep imports sorted; avoid default exports in core modules.
+- TypeScript, 2‑space indentation.
+- Naming: camelCase for vars/functions; PascalCase for classes/types; kebab‑case for filenames.
+- Formatting: Prettier (`npm run format`).
 
-## Testing Guidelines
+## Scope clarifications
 
-- Framework: Vitest. Place tests in `tests/` mirroring `src/` paths.
-- Names: `*.spec.ts` or `*.test.ts`.
-- Coverage: target ≥80% for core logic (`src/core/*`).
-- Run focused tests locally (`vitest -t "deck"`) and ensure deck, snooze, and date header behaviors are covered.
+- No tests (personal plugin).
+- No swipe gestures; navigation via buttons/arrow keys only.
+- Date sections written as pure Markdown headers (`###### YYYY-MM-DD`).
+- Deep link registered: `obsidian://inklings-focus` opens the Focus view.
 
-## Commit & Pull Request Guidelines
+## Security
 
-- Commits: Conventional Commits (e.g., `feat: shuffle deck on session start`, `fix: insert ### <today> header`).
-- PRs: small, descriptive, and linked to issues; include screenshots/GIFs of the Focus view when UI changes.
-- Checks: CI must pass build, lint, and tests; update `PRD.md` when behavior changes.
-
-## Security & Configuration Tips
-
-- Never commit vault content or secrets. No tokens are required; if configuration is needed, document it in `README.md` and provide safe defaults.
+- Never commit vault content or secrets. No tokens are required.

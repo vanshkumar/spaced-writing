@@ -1,124 +1,99 @@
-# PRD — Inklings (Focus)
+# PRD — Inklings Focus (as built)
 
 ## 1) Purpose
 
-Surface **one inkling at a time** from your Obsidian vault so you can quickly add a dated blurb and then move on. Navigation is **swipe-only** (no list), and you can **snooze** any inkling for a few days.
+Surface one inkling (note) at a time so you can quickly add a dated blurb or snooze it and move on. Works on Obsidian Mobile and Desktop.
 
-## 2) Scope (MVP)
+## 2) Scope (implemented)
 
-* Obsidian plugin (mobile + desktop).
-* One-screen **Focus View** with:
+- Obsidian plugin with a single Focus view.
+- Title area shows the note title; tap it to rename the file.
+- Top‑right actions:
+  - New: create a new inkling (small button).
+  - Snooze: “zzz” button snoozes current inkling.
+- Body shows the note rendered markdown.
+- Bottom controls: “<” Previous, “+” Add Entry, “>” Next.
+- Keyboard: ArrowLeft/ArrowRight for prev/next on desktop.
+- No swipe gestures.
 
-  * Title.
-  * Reverse-chronological dated sections:
+## 3) Data model & file format
 
-    * **`YYYY-MM-DD`** (small, gray header).
-    * Free-form text directly beneath (paragraphs; no bullets required).
-  * **FAB “+”** to add today’s entry.
-  * **Snooze** pill button (shows exact target date).
-* **Swipe left/right** to move next/previous within a randomized deck.
-* **Snooze** excludes the inkling for a fixed period.
-* No queues/scoring/search/tags UI.
-
-## 3) Your final decisions (apply exactly)
-
-* **File order = UI order**: newest date section first in the file (reverse chronological).
-* **Swipe-back depth** limited to items already seen in the current deck session.
-* **Snooze label** shows the **ISO date** (e.g., `2025-09-08`), not “until Friday”.
-* **Deck uses all eligible inklings** under the configured folder (no cap).
-
-## 4) Data model & file format
-
-* **Folder** (setting): default `Inklings/`
-* **Frontmatter**
+- Folder (setting): default `Inklings/` (no subfolders).
+- Frontmatter (optional):
 
   ```yaml
   ---
-  type: inkling
-  snoozed_until: 2025-09-08   # optional ISO date; when present and > today, exclude
+  snoozed_until: 2025-09-08   # ISO date; when present and > today, exclude from deck
   ---
   ```
-* **Body (reverse chronological)**
+- Body (reverse chronological by section):
 
   ```md
-  ### 2025-09-05
+  ###### 2025-09-05
   Today’s blurb…
 
-  ### 2025-08-27
+  ###### 2025-08-27
   Earlier thought…
   ```
-* Plugin **never writes** `lastmod` (reads it if present but ignores for logic).
+- Plugin never writes `lastmod`.
 
-## 5) Actions & flows
+## 4) Actions & flows
 
-### Open Focus
+- Open Focus
+  - Command: “Inklings: Open Focus” or obsidian://inklings-focus.
+  - Builds a randomized deck of eligible inklings and shows the first item.
 
-Screenshot: ![alt text](image.png)
+- Add Entry
+  - Tap “+” → multiline entry modal.
+  - If `###### <today>` exists: append a new paragraph under it.
+  - Else insert a new `###### <today>` section at the top (after frontmatter and H1 if present).
 
-* Command: **Inklings: Open Focus** → build deck (see §6) → show current note.
-* Bottom controls: **FAB “+”**, **Snooze (YYYY-MM-DD)**.
+- Snooze
+  - Tap “zzz” → write/update `snoozed_until = today + N days` (default 3).
+  - Removes current note from this session’s deck and re-renders.
 
-### Add Entry
+- Navigation
+  - “>” next advances within the deck; going past the last shows an empty state.
+  - “<” previous moves back only within items already seen in this session.
+  - Empty state shows “Shuffle new deck” and “Create inkling”; the bottom Previous button remains visible.
 
-Screenshot: ![alt text](image-1.png)
+- Create Inkling
+  - From top‑right “New” or empty state “Create inkling”.
+  - Validates filename length (<=255 bytes including `.md`) and disallows invalid characters (`/ \ : * " < > |`). `?` is allowed.
+  - Creates `folder/<title>.md` with empty body, adds to deck, focuses it.
 
-* Tap **+** → sheet “New Entry” (multiline).
-* **Add**:
+- Rename Inkling
+  - Tap the title to rename; same validation as creation.
 
-  * If `### <today>` exists: append a new paragraph under it.
-  * Else **insert a new `### <today>` section at the top** of the file (just under the title).
-* Close sheet; re-render.
+## 5) Deck construction
 
-### Snooze
+- Eligible files:
+  - Markdown files directly under the configured folder (no subfolders).
+  - Excludes notes with `snoozed_until > today`.
+- Order: Fisher–Yates shuffle of all eligible on session build.
+- Index based navigation; previous only goes back within the current session history.
 
-* Tap **Snooze**:
+## 6) Settings
 
-  * Write `snoozed_until = today + N days` (default **3**; setting).
-  * Advance immediately to next inkling.
-  * Label always shows the exact target date (ISO).
+- `folder` (string, default `Inklings/`).
+- `snoozeDays` (integer, default `3`).
+- `dateHeaderLevel` (string, default `"######"`); fixed via UI note, not user‑toggled.
 
-### Swipe navigation
+## 7) UI details
 
-* **Left** → next item in deck.
-* **Right** → go back (only within the items already viewed this session).
-* When the deck ends → empty state with “Shuffle new deck” and “Create inkling”.
+- Theme-aware colors; date headers render smaller and muted in Focus.
+- Date sections written as `###### YYYY-MM-DD` in the file.
+- Top‑right actions (New, Snooze) stay anchored regardless of title wrapping.
+- Bottom controls show prev/next and add entry; Previous persists on empty deck.
 
-## 6) Deck construction
+## 8) Edge cases & behavior
 
-* **Eligible** files:
+- No eligible notes → empty state with “Create inkling” and “Shuffle new deck”.
+- Malformed/missing date headers → adding an entry creates `###### <today>` at top.
+- Concurrent edits → last write wins.
+- Vault change listeners are not global; deck is rebuilt when creating/renaming via the view or by pressing “Shuffle new deck”.
 
-  * In configured folder.
-  * `type: inkling` (or absent → default to include).
-  * `snoozed_until` absent or `<= today`.
-* **Order**: Fisher–Yates shuffle of all eligible at session start.
-* Maintain **index + back stack** for swipe-back.
+## 9) Commands & deep links
 
-## 7) Settings
-
-* `folder` (string, default `"Inklings/"`)
-* `snoozeDays` (int, default `3`)
-* `dateHeaderLevel` (default `"###"`) — for the date section
-
-## 8) UI details
-
-* Follow Obsidian light/dark.
-* Title.
-* Date header: system caption color, `YYYY-MM-DD`, smaller than body.
-* Body: regular text; paragraphs separated by a blank line.
-* Bottom: centered **FAB “+”**; right **Snooze** pill with ISO date.
-
-## 9) Edge cases
-
-* **No eligible notes** → show empty state (buttons: Create inkling / Shuffle).
-* **Malformed/missing date headers** → show raw body; adding an entry creates `### <today>` at top.
-* **Concurrent edits** → atomic modify; last-write wins.
-* **Vault changes** → listen for file create/modify/rename; invalidate deck.
-
-## 10) Acceptance criteria
-
-* Focus shows a single inkling with date-grouped entries **newest first** in **both UI and file**.
-* Swipe left/right navigates forward/back within a shuffled deck of **all eligible** notes.
-* **+ Add** inserts under today’s header (creating it at the top when absent).
-* **Snooze** sets `snoozed_until` accurately and advances; label displays the correct ISO date.
-* Plugin never writes `lastmod`.
-* Works on Obsidian Mobile and Desktop.
+- Commands: Open Focus, Add Entry (current), Snooze (current).
+- Deep link: `obsidian://inklings-focus` opens the Focus view (use from iOS Shortcuts).
