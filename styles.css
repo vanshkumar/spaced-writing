@@ -8,11 +8,24 @@
   overflow: auto;
   padding: 1rem;
 }
+/* Date headers (### YYYY-MM-DD) should be subtle and smaller than body */
+/* Focus-only date header style: use smaller, muted h6 for date sections */
+.inklings-focus .content h6 {
+  font-size: 0.9em;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin: 1em 0 0.25em;
+}
 .inklings-focus .title-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+.inklings-focus .header-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 4px 0 8px;
 }
 .inklings-focus .inline-title {
   margin: 0;
@@ -29,6 +42,24 @@
   border-radius: 6px;
   cursor: pointer;
 }
+/* Title input in 'Create inkling' modal */
+.inklings-title-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  font-size: 16px; /* avoids iOS zoom on focus */
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-modifier-form-field);
+  color: var(--text-normal);
+  margin: 8px 0 12px;
+}
+.inklings-error {
+  color: var(--text-error, #ff4d4f);
+  font-size: 12px;
+  margin-top: -8px;
+  margin-bottom: 12px;
+}
 .inklings-focus .controls {
   display: flex;
   align-items: center;
@@ -38,11 +69,7 @@
   border-top: 1px solid var(--background-modifier-border);
   position: relative;
 }
-/* Bottom bar adjustments (only the persistent controls at the bottom) */
-.inklings-focus > .controls {
-  align-items: flex-end;
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 2px);
-}
+/* Bottom bar adjustments removed; use default layout */
 .inklings-focus .icon-btn {
   display: inline-flex;
   align-items: center;
@@ -59,6 +86,7 @@
   width: 16px;
   height: 16px;
 }
+.inklings-focus .title-snooze-btn { font-size: 12px; }
 .inklings-focus .fab {
   background: var(--interactive-accent);
   color: var(--text-on-accent);
@@ -119,16 +147,14 @@
 @media (max-width: 640px) {
   .inklings-focus .icon-btn { width: 26px; height: 26px; }
   .inklings-focus .title-new-btn { font-size: 12px; padding: 4px 8px; }
+  .inklings-focus .title-snooze-btn { font-size: 11px; }
   .inklings-focus .controls {
     gap: 8px;
     padding: 8px 10px;
     flex-wrap: wrap;
     justify-content: space-between;
   }
-  .inklings-focus > .controls {
-    align-items: flex-end;
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 2px);
-  }
+  /* No extra bottom padding; controls are inline */
   .inklings-focus .btn {
     padding: 6px 10px;
     font-size: 12px;
@@ -159,14 +185,6 @@
   .inklings-focus .control-prev { order: 1; }
   .inklings-focus .control-add { order: 2; }
   .inklings-focus .control-next { order: 3; }
-  .inklings-focus .control-snooze {
-    order: 4;
-    flex: 1 1 100%;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
   /* Remove tooltip/hint on mobile */
   .inklings-focus .hint { display: none !important; }
 }

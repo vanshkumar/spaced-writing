@@ -13,6 +13,11 @@ export default class InklingsFocusPlugin extends Plugin {
       (leaf: WorkspaceLeaf) => new FocusView(leaf, this)
     );
 
+    // Protocol handler: obsidian://inklings-focus → open Focus view
+    this.registerObsidianProtocolHandler("inklings-focus", async () => {
+      await this.activateView();
+    });
+
     this.addCommand({
       id: "inklings-open-focus",
       name: "Open Focus",
@@ -75,4 +80,3 @@ export default class InklingsFocusPlugin extends Plugin {
     await this.saveData(this.settings);
   }
 }
-

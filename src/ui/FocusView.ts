@@ -23,8 +23,8 @@ export class FocusView extends ItemView {
   private controlsEl!: HTMLElement;
   private addBtnEl!: HTMLElement;
   private prevBtnEl!: HTMLElement;
-  private snoozeBtnEl!: HTMLElement;
   private nextBtnEl!: HTMLElement;
+  private snoozeHeaderBtnEl: HTMLElement | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: InklingsFocusPlugin) {
     super(leaf);
@@ -51,6 +51,14 @@ export class FocusView extends ItemView {
 
     // Keyboard navigation (prev/next)
     this.registerDomEvent(window, "keydown", (e) => {
+      // Don't hijack arrow keys when typing in inputs/textareas/editors
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      const isEditable =
+        tag === "input" ||
+        tag === "textarea" ||
+        (target as HTMLElement | null)?.isContentEditable === true;
+      if (isEditable) return;
       if (e.key === "ArrowLeft") {
         e.preventDefault();
         e.stopPropagation();
@@ -71,7 +79,6 @@ export class FocusView extends ItemView {
 
   private renderControls() {
     this.controlsEl.empty();
-    const snoozeDays = this.plugin.settings.snoozeDays;
 
     this.addBtnEl = this.controlsEl.createEl("button", {
       text: "+",
@@ -87,9 +94,6 @@ export class FocusView extends ItemView {
       attr: { 'aria-label': "Previous" },
     });
     this.prevBtnEl.addEventListener("click", () => this.prev());
-
-    this.snoozeBtnEl = this.controlsEl.createEl("button", { text: `Snooze for ${snoozeDays}d`, cls: "btn control-snooze" });
-    this.snoozeBtnEl.addEventListener("click", () => this.snoozeCurrent());
 
     this.nextBtnEl = this.controlsEl.createEl("button", {
       text: ">",
@@ -116,16 +120,26 @@ export class FocusView extends ItemView {
     const md = await this.app.vault.read(file);
     const wrapper = this.contentElDiv.createDiv();
 
-    // Title row with inline title and a 'New' icon button to create a new inkling
+    // Title row with inline title (click to rename) and a 'New' button to create a new inkling
     const headerRow = wrapper.createDiv({ cls: "title-row" });
     const titleEl = headerRow.createEl("h1", { text: file.basename });
     titleEl.addClass("inline-title");
+    titleEl.addEventListener("click", () => this.renameCurrentTitle());
     const newBtn = headerRow.createEl("button", {
       cls: "title-new-btn",
       text: "New",
       attr: { 'aria-label': "Create inkling", type: "button" },
     });
     newBtn.addEventListener("click", () => this.createInkling());
+
+    // Row under the title for actions like Snooze
+    const actionsRow = wrapper.createDiv({ cls: "header-actions" });
+    this.snoozeHeaderBtnEl = actionsRow.createEl("button", {
+      cls: "icon-btn title-snooze-btn",
+      text: "zzz",
+      attr: { 'aria-label': "Snooze" },
+    });
+    this.snoozeHeaderBtnEl.addEventListener("click", () => this.snoozeCurrent());
 
     const bodyEl = wrapper.createDiv();
     await MarkdownRenderer.renderMarkdown(md, bodyEl, file.path, this);
@@ -212,19 +226,39 @@ export class FocusView extends ItemView {
   // Swiping removed intentionally; navigation via buttons or arrow keys only.
 
   private updateControlsForFilePresence(hasFile: boolean) {
-    if (!this.prevBtnEl || !this.nextBtnEl || !this.snoozeBtnEl || !this.addBtnEl) return;
+    if (!this.prevBtnEl || !this.nextBtnEl || !this.addBtnEl) return;
     // Always show Previous
     this.prevBtnEl.style.display = "inline-flex";
     // Show others only when a file is active
     const show = hasFile ? "inline-flex" : "none";
     this.nextBtnEl.style.display = show;
-    this.snoozeBtnEl.style.display = show;
     this.addBtnEl.style.display = show;
+    if (this.snoozeHeaderBtnEl) this.snoozeHeaderBtnEl.style.display = hasFile ? "inline-flex" : "none";
+  }
+
+  private async renameCurrentTitle() {
+    const file = this.deck[this.index];
+    if (!file) return;
+    const newTitle = await promptRename(this.app, file.basename);
+    if (!newTitle) return;
+    const base = sanitizeFileName(newTitle.trim());
+    if (!base || base === file.basename) return;
+    const parent = file.parent?.path ?? "";
+    const newPath = (parent ? parent + "/" : "") + base + ".md";
+    try {
+      await this.app.vault.rename(file, newPath);
+    } catch (e) {
+      // If rename fails (e.g., name exists), just re-render; no extra handling for now.
+    }
+    await this.rebuildDeck();
+    const idx = this.deck.findIndex((f) => f.path === newPath);
+    if (idx >= 0) this.index = idx;
+    await this.renderCurrent();
   }
 }
 
 function sanitizeFileName(name: string): string {
-  return name.replace(/[\\/:*?"<>|]/g, "_").trim();
+  return name.replace(/[\\/:*"<>|]/g, "_").trim();
 }
 
 // Toggle visibility of controls depending on whether there is an active file
@@ -237,19 +271,61 @@ async function promptTitle(app: App): Promise<string | null> {
       value = "";
       onOpen() {
         this.contentEl.createEl("h3", { text: "Create inkling" });
-        const input = this.contentEl.createEl("input", { attr: { placeholder: "Title" } });
-        input.addEventListener("input", () => (this.value = input.value));
+        const input = this.contentEl.createEl("input", {
+          cls: "inklings-title-input",
+          attr: { id: "inklings-title-input", placeholder: "Title", type: "text" },
+        });
+        // Autofocus for quicker input
+        setTimeout(() => input.focus(), 0);
+        // Inline error for long filenames
+        const errorEl = this.contentEl.createEl("div", { cls: "inklings-error" });
+        errorEl.style.display = "none";
+
+        let createBtnEl: HTMLButtonElement | null = null;
+
+        const bytesLen = (s: string) => new TextEncoder().encode(s).length;
+        const validate = () => {
+          const sanitized = sanitizeFileName(this.value.trim());
+          const bytes = bytesLen(sanitized + ".md");
+          const tooLong = bytes > 255;
+          if (tooLong) {
+            errorEl.textContent = "Title is too long for a filename. Please shorten it.";
+            errorEl.style.display = "block";
+          } else {
+            errorEl.textContent = "";
+            errorEl.style.display = "none";
+          }
+          if (createBtnEl) createBtnEl.disabled = tooLong || sanitized.length === 0;
+          return !tooLong && sanitized.length > 0;
+        };
+
+        input.addEventListener("input", () => {
+          this.value = input.value;
+          validate();
+        });
+        // Submit on Enter
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            if (validate()) {
+              this.close();
+              resolve(this.value.trim() || null);
+            }
+          }
+        });
         const setting = new Setting(this.contentEl);
         setting
-          .addButton((b) =>
-            b
-              .setButtonText("Create")
-              .setCta()
-              .onClick(() => {
+          .addButton((b) => {
+            b.setButtonText("Create").setCta().onClick(() => {
+              if (validate()) {
                 this.close();
                 resolve(this.value.trim() || null);
-              })
-          )
+              }
+            });
+            createBtnEl = (b as any).buttonEl as HTMLButtonElement;
+            validate();
+            return b;
+          })
           .addButton((b) => b.setButtonText("Cancel").onClick(() => {
             this.close();
             resolve(null);
@@ -257,5 +333,78 @@ async function promptTitle(app: App): Promise<string | null> {
       }
     }
     new TitleModal(app).open();
+  });
+}
+
+async function promptRename(app: App, initial: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    class RenameModal extends Modal {
+      value = initial;
+      onOpen() {
+        this.contentEl.createEl("h3", { text: "Rename inkling" });
+        const input = this.contentEl.createEl("input", {
+          cls: "inklings-title-input",
+          attr: { placeholder: "Title", type: "text", value: initial },
+        });
+        setTimeout(() => {
+          input.focus();
+          try { (input as HTMLInputElement).select(); } catch {}
+        }, 0);
+
+        const errorEl = this.contentEl.createEl("div", { cls: "inklings-error" });
+        errorEl.style.display = "none";
+        let saveBtnEl: HTMLButtonElement | null = null;
+        const bytesLen = (s: string) => new TextEncoder().encode(s).length;
+        const validate = () => {
+          const sanitized = sanitizeFileName(this.value.trim());
+          const bytes = bytesLen(sanitized + ".md");
+          const tooLong = bytes > 255;
+          if (tooLong) {
+            errorEl.textContent = "Title is too long for a filename. Please shorten it.";
+            errorEl.style.display = "block";
+          } else {
+            errorEl.textContent = "";
+            errorEl.style.display = "none";
+          }
+          if (saveBtnEl) saveBtnEl.disabled = tooLong || sanitized.length === 0;
+          return !tooLong && sanitized.length > 0;
+        };
+        input.addEventListener("input", () => {
+          this.value = (input as HTMLInputElement).value;
+          validate();
+        });
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            if (validate()) {
+              this.close();
+              resolve(this.value.trim() || null);
+            }
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            this.close();
+            resolve(null);
+          }
+        });
+        const setting = new Setting(this.contentEl);
+        setting
+          .addButton((b) => {
+            b.setButtonText("Save").setCta().onClick(() => {
+              if (validate()) {
+                this.close();
+                resolve(this.value.trim() || null);
+              }
+            });
+            saveBtnEl = (b as any).buttonEl as HTMLButtonElement;
+            validate();
+            return b;
+          })
+          .addButton((b) => b.setButtonText("Cancel").onClick(() => {
+            this.close();
+            resolve(null);
+          }));
+      }
+    }
+    new RenameModal(app).open();
   });
 }

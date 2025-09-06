@@ -3,13 +3,13 @@ import { App, PluginSettingTab, Setting } from "obsidian";
 export interface InklingsSettings {
   folder: string; // e.g., "Inklings"
   snoozeDays: number; // default 3
-  dateHeaderLevel: "###"; // fixed default per PRD
+  dateHeaderLevel: string; // fixed default level
 }
 
 export const DEFAULT_SETTINGS: InklingsSettings = {
   folder: "Inklings",
   snoozeDays: 3,
-  dateHeaderLevel: "###",
+  dateHeaderLevel: "######",
 };
 
 export class InklingsSettingTab extends PluginSettingTab {
@@ -54,7 +54,6 @@ export class InklingsSettingTab extends PluginSettingTab {
       );
 
     const note = containerEl.createEl("div", { cls: "setting-item" });
-    note.createEl("div", { text: "Date header level is fixed to ### per PRD.", cls: "setting-item-description" });
+    note.createEl("div", { text: "Date header level is fixed to ######.", cls: "setting-item-description" });
   }
 }
-

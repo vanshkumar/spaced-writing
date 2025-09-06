@@ -30,7 +30,7 @@ var import_obsidian = require("obsidian");
 var DEFAULT_SETTINGS = {
   folder: "Inklings",
   snoozeDays: 3,
-  dateHeaderLevel: "###"
+  dateHeaderLevel: "######"
 };
 var InklingsSettingTab = class extends import_obsidian.PluginSettingTab {
   constructor(app, plugin) {
@@ -55,7 +55,7 @@ var InklingsSettingTab = class extends import_obsidian.PluginSettingTab {
       })
     );
     const note = containerEl.createEl("div", { cls: "setting-item" });
-    note.createEl("div", { text: "Date header level is fixed to ### per PRD.", cls: "setting-item-description" });
+    note.createEl("div", { text: "Date header level is fixed to ######.", cls: "setting-item-description" });
   }
 };
 
@@ -146,7 +146,6 @@ var NewEntryModal = class extends import_obsidian2.Modal {
 
 // src/core/markdown.ts
 function upsertTodayEntry(content, dateHeaderLevel, isoDate, newParagraph) {
-  const header = `${dateHeaderLevel} ${isoDate}`;
   if (hasDateHeader(content, dateHeaderLevel, isoDate)) {
     return appendParagraphToDateSection(content, dateHeaderLevel, isoDate, newParagraph);
   }
@@ -175,11 +174,7 @@ function insertNewDateSectionAtTop(content, dateHeaderLevel, isoDate, paragraph)
       break;
     }
   }
-  const headerBlock = [
-    `${dateHeaderLevel} ${isoDate}`,
-    paragraph.trim(),
-    ""
-  ].join("\n");
+  const headerBlock = [`${dateHeaderLevel} ${isoDate}`, paragraph.trim(), ""].join("\n");
   const before = lines.slice(0, insertIndex).join("\n");
   const after = lines.slice(insertIndex).join("\n");
   const prefix = before.length ? before + "\n\n" : "";
@@ -237,6 +232,7 @@ var FocusView = class extends import_obsidian3.ItemView {
     super(leaf);
     this.deck = [];
     this.index = 0;
+    this.snoozeHeaderBtnEl = null;
     this.plugin = plugin;
   }
   getViewType() {
@@ -254,6 +250,11 @@ var FocusView = class extends import_obsidian3.ItemView {
     this.renderControls();
     await this.rebuildDeck();
     this.registerDomEvent(window, "keydown", (e) => {
+      const target = e.target;
+      const tag = target?.tagName?.toLowerCase();
+      const isEditable = tag === "input" || tag === "textarea" || target?.isContentEditable === true;
+      if (isEditable)
+        return;
       if (e.key === "ArrowLeft") {
         e.preventDefault();
         e.stopPropagation();
@@ -272,7 +273,6 @@ var FocusView = class extends import_obsidian3.ItemView {
   }
   renderControls() {
     this.controlsEl.empty();
-    const snoozeDays = this.plugin.settings.snoozeDays;
     this.addBtnEl = this.controlsEl.createEl("button", {
       text: "+",
       cls: "fab control-add",
@@ -285,8 +285,6 @@ var FocusView = class extends import_obsidian3.ItemView {
       attr: { "aria-label": "Previous" }
     });
     this.prevBtnEl.addEventListener("click", () => this.prev());
-    this.snoozeBtnEl = this.controlsEl.createEl("button", { text: `Snooze for ${snoozeDays}d`, cls: "btn control-snooze" });
-    this.snoozeBtnEl.addEventListener("click", () => this.snoozeCurrent());
     this.nextBtnEl = this.controlsEl.createEl("button", {
       text: ">",
       cls: "btn nav-right control-next",
@@ -310,12 +308,20 @@ var FocusView = class extends import_obsidian3.ItemView {
     const headerRow = wrapper.createDiv({ cls: "title-row" });
     const titleEl = headerRow.createEl("h1", { text: file.basename });
     titleEl.addClass("inline-title");
+    titleEl.addEventListener("click", () => this.renameCurrentTitle());
     const newBtn = headerRow.createEl("button", {
       cls: "title-new-btn",
       text: "New",
       attr: { "aria-label": "Create inkling", type: "button" }
     });
     newBtn.addEventListener("click", () => this.createInkling());
+    const actionsRow = wrapper.createDiv({ cls: "header-actions" });
+    this.snoozeHeaderBtnEl = actionsRow.createEl("button", {
+      cls: "icon-btn title-snooze-btn",
+      text: "zzz",
+      attr: { "aria-label": "Snooze" }
+    });
+    this.snoozeHeaderBtnEl.addEventListener("click", () => this.snoozeCurrent());
     const bodyEl = wrapper.createDiv();
     await import_obsidian3.MarkdownRenderer.renderMarkdown(md, bodyEl, file.path, this);
   }
@@ -390,17 +396,40 @@ var FocusView = class extends import_obsidian3.ItemView {
   }
   // Swiping removed intentionally; navigation via buttons or arrow keys only.
   updateControlsForFilePresence(hasFile) {
-    if (!this.prevBtnEl || !this.nextBtnEl || !this.snoozeBtnEl || !this.addBtnEl)
+    if (!this.prevBtnEl || !this.nextBtnEl || !this.addBtnEl)
       return;
     this.prevBtnEl.style.display = "inline-flex";
     const show = hasFile ? "inline-flex" : "none";
     this.nextBtnEl.style.display = show;
-    this.snoozeBtnEl.style.display = show;
     this.addBtnEl.style.display = show;
+    if (this.snoozeHeaderBtnEl)
+      this.snoozeHeaderBtnEl.style.display = hasFile ? "inline-flex" : "none";
+  }
+  async renameCurrentTitle() {
+    const file = this.deck[this.index];
+    if (!file)
+      return;
+    const newTitle = await promptRename(this.app, file.basename);
+    if (!newTitle)
+      return;
+    const base = sanitizeFileName(newTitle.trim());
+    if (!base || base === file.basename)
+      return;
+    const parent = file.parent?.path ?? "";
+    const newPath = (parent ? parent + "/" : "") + base + ".md";
+    try {
+      await this.app.vault.rename(file, newPath);
+    } catch (e) {
+    }
+    await this.rebuildDeck();
+    const idx = this.deck.findIndex((f) => f.path === newPath);
+    if (idx >= 0)
+      this.index = idx;
+    await this.renderCurrent();
   }
 };
 function sanitizeFileName(name) {
-  return name.replace(/[\\/:*?"<>|]/g, "_").trim();
+  return name.replace(/[\\/:*"<>|]/g, "_").trim();
 }
 async function promptTitle(app) {
   return new Promise((resolve) => {
@@ -411,21 +440,137 @@ async function promptTitle(app) {
       }
       onOpen() {
         this.contentEl.createEl("h3", { text: "Create inkling" });
-        const input = this.contentEl.createEl("input", { attr: { placeholder: "Title" } });
-        input.addEventListener("input", () => this.value = input.value);
+        const input = this.contentEl.createEl("input", {
+          cls: "inklings-title-input",
+          attr: { id: "inklings-title-input", placeholder: "Title", type: "text" }
+        });
+        setTimeout(() => input.focus(), 0);
+        const errorEl = this.contentEl.createEl("div", { cls: "inklings-error" });
+        errorEl.style.display = "none";
+        let createBtnEl = null;
+        const bytesLen = (s) => new TextEncoder().encode(s).length;
+        const validate = () => {
+          const sanitized = sanitizeFileName(this.value.trim());
+          const bytes = bytesLen(sanitized + ".md");
+          const tooLong = bytes > 255;
+          if (tooLong) {
+            errorEl.textContent = "Title is too long for a filename. Please shorten it.";
+            errorEl.style.display = "block";
+          } else {
+            errorEl.textContent = "";
+            errorEl.style.display = "none";
+          }
+          if (createBtnEl)
+            createBtnEl.disabled = tooLong || sanitized.length === 0;
+          return !tooLong && sanitized.length > 0;
+        };
+        input.addEventListener("input", () => {
+          this.value = input.value;
+          validate();
+        });
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            if (validate()) {
+              this.close();
+              resolve(this.value.trim() || null);
+            }
+          }
+        });
         const setting = new import_obsidian3.Setting(this.contentEl);
-        setting.addButton(
-          (b) => b.setButtonText("Create").setCta().onClick(() => {
-            this.close();
-            resolve(this.value.trim() || null);
-          })
-        ).addButton((b) => b.setButtonText("Cancel").onClick(() => {
+        setting.addButton((b) => {
+          b.setButtonText("Create").setCta().onClick(() => {
+            if (validate()) {
+              this.close();
+              resolve(this.value.trim() || null);
+            }
+          });
+          createBtnEl = b.buttonEl;
+          validate();
+          return b;
+        }).addButton((b) => b.setButtonText("Cancel").onClick(() => {
           this.close();
           resolve(null);
         }));
       }
     }
     new TitleModal(app).open();
+  });
+}
+async function promptRename(app, initial) {
+  return new Promise((resolve) => {
+    class RenameModal extends import_obsidian3.Modal {
+      constructor() {
+        super(...arguments);
+        this.value = initial;
+      }
+      onOpen() {
+        this.contentEl.createEl("h3", { text: "Rename inkling" });
+        const input = this.contentEl.createEl("input", {
+          cls: "inklings-title-input",
+          attr: { placeholder: "Title", type: "text", value: initial }
+        });
+        setTimeout(() => {
+          input.focus();
+          try {
+            input.select();
+          } catch {
+          }
+        }, 0);
+        const errorEl = this.contentEl.createEl("div", { cls: "inklings-error" });
+        errorEl.style.display = "none";
+        let saveBtnEl = null;
+        const bytesLen = (s) => new TextEncoder().encode(s).length;
+        const validate = () => {
+          const sanitized = sanitizeFileName(this.value.trim());
+          const bytes = bytesLen(sanitized + ".md");
+          const tooLong = bytes > 255;
+          if (tooLong) {
+            errorEl.textContent = "Title is too long for a filename. Please shorten it.";
+            errorEl.style.display = "block";
+          } else {
+            errorEl.textContent = "";
+            errorEl.style.display = "none";
+          }
+          if (saveBtnEl)
+            saveBtnEl.disabled = tooLong || sanitized.length === 0;
+          return !tooLong && sanitized.length > 0;
+        };
+        input.addEventListener("input", () => {
+          this.value = input.value;
+          validate();
+        });
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            if (validate()) {
+              this.close();
+              resolve(this.value.trim() || null);
+            }
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            this.close();
+            resolve(null);
+          }
+        });
+        const setting = new import_obsidian3.Setting(this.contentEl);
+        setting.addButton((b) => {
+          b.setButtonText("Save").setCta().onClick(() => {
+            if (validate()) {
+              this.close();
+              resolve(this.value.trim() || null);
+            }
+          });
+          saveBtnEl = b.buttonEl;
+          validate();
+          return b;
+        }).addButton((b) => b.setButtonText("Cancel").onClick(() => {
+          this.close();
+          resolve(null);
+        }));
+      }
+    }
+    new RenameModal(app).open();
   });
 }
 
@@ -441,6 +586,9 @@ var InklingsFocusPlugin = class extends import_obsidian4.Plugin {
       VIEW_TYPE,
       (leaf) => new FocusView(leaf, this)
     );
+    this.registerObsidianProtocolHandler("inklings-focus", async () => {
+      await this.activateView();
+    });
     this.addCommand({
       id: "inklings-open-focus",
       name: "Open Focus",

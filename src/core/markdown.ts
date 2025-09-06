@@ -4,20 +4,18 @@ const DATE_RE = /^(?<hashes>#+)\s+(?<date>\d{4}-\d{2}-\d{2})\s*$/m;
 
 export function upsertTodayEntry(
   content: string,
-  dateHeaderLevel: "###",
+  dateHeaderLevel: string,
   isoDate: string,
   newParagraph: string
 ): string {
-  // Ensure there is a today section (### YYYY-MM-DD). Append paragraph to bottom of that section.
-  const header = `${dateHeaderLevel} ${isoDate}`;
-
+  // Ensure there is a today section (e.g., #### YYYY-MM-DD). Append paragraph to bottom of that section.
   if (hasDateHeader(content, dateHeaderLevel, isoDate)) {
     return appendParagraphToDateSection(content, dateHeaderLevel, isoDate, newParagraph);
   }
   return insertNewDateSectionAtTop(content, dateHeaderLevel, isoDate, newParagraph);
 }
 
-export function hasDateHeader(content: string, dateHeaderLevel: "###", isoDate: string): boolean {
+export function hasDateHeader(content: string, dateHeaderLevel: string, isoDate: string): boolean {
   const escaped = dateHeaderLevel.replace(/[#]/g, "#");
   const re = new RegExp(`^${escaped}\\s+${isoDate}\\s*$`, "m");
   return re.test(content);
@@ -25,7 +23,7 @@ export function hasDateHeader(content: string, dateHeaderLevel: "###", isoDate: 
 
 export function insertNewDateSectionAtTop(
   content: string,
-  dateHeaderLevel: "###",
+  dateHeaderLevel: string,
   isoDate: string,
   paragraph: string
 ): string {
@@ -49,11 +47,7 @@ export function insertNewDateSectionAtTop(
     }
   }
 
-  const headerBlock = [
-    `${dateHeaderLevel} ${isoDate}`,
-    paragraph.trim(),
-    "",
-  ].join("\n");
+  const headerBlock = [`${dateHeaderLevel} ${isoDate}`, paragraph.trim(), ""].join("\n");
 
   const before = lines.slice(0, insertIndex).join("\n");
   const after = lines.slice(insertIndex).join("\n");
@@ -64,7 +58,7 @@ export function insertNewDateSectionAtTop(
 
 export function appendParagraphToDateSection(
   content: string,
-  dateHeaderLevel: "###",
+  dateHeaderLevel: string,
   isoDate: string,
   paragraph: string
 ): string {
