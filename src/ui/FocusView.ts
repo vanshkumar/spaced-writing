@@ -8,7 +8,6 @@ import {
   WorkspaceLeaf,
 } from "obsidian";
 import type InklingsFocusPlugin from "../main";
-import { buildDeck } from "../core/deck";
 import { addDaysISO, todayLocalISO } from "../core/dates";
 import { NewEntryModal } from "./NewEntryModal";
 import { upsertFrontmatterSnooze, upsertTodayEntry } from "../core/markdown";
@@ -25,6 +24,8 @@ export class FocusView extends ItemView {
   private prevBtnEl!: HTMLElement;
   private nextBtnEl!: HTMLElement;
   private snoozeHeaderBtnEl: HTMLElement | null = null;
+  private deleteHeaderBtnEl: HTMLElement | null = null;
+  private counterEl!: HTMLElement;
 
   constructor(leaf: WorkspaceLeaf, plugin: InklingsFocusPlugin) {
     super(leaf);
@@ -72,7 +73,7 @@ export class FocusView extends ItemView {
   }
 
   async rebuildDeck() {
-    this.deck = await buildDeck(this.app, this.plugin.settings);
+    this.deck = await this.plugin.getOrBuildTodayDeck();
     this.index = 0;
     await this.renderCurrent();
   }
@@ -86,6 +87,9 @@ export class FocusView extends ItemView {
       attr: { 'aria-label': "Add entry" },
     });
     this.addBtnEl.addEventListener("click", () => this.openNewEntryModal());
+
+    // Progress counter (centered with controls)
+    this.counterEl = this.controlsEl.createEl("span", { cls: "counter" });
 
     // Prev / Next nav buttons anchored left/right
     this.prevBtnEl = this.controlsEl.createEl("button", {
@@ -112,6 +116,7 @@ export class FocusView extends ItemView {
       // Show controls bar but keep only Previous visible at end of deck
       this.controlsEl.style.display = "flex";
       this.updateControlsForFilePresence(false);
+      this.updateCounterForEmpty();
       return;
     }
 
@@ -140,18 +145,31 @@ export class FocusView extends ItemView {
     });
     this.snoozeHeaderBtnEl.addEventListener("click", () => this.snoozeCurrent());
 
+    // Delete (red X) directly below Snooze
+    this.deleteHeaderBtnEl = actionsTop.createEl("button", {
+      cls: "icon-btn title-delete-btn",
+      text: "X",
+      attr: { 'aria-label': "Delete note" },
+    });
+    this.deleteHeaderBtnEl.addEventListener("click", () => this.deleteCurrent());
+
     const bodyEl = wrapper.createDiv();
     await MarkdownRenderer.renderMarkdown(md, bodyEl, file.path, this);
+
+    this.updateCounterForActive();
   }
 
   private renderEmptyState() {
     const box = this.contentElDiv.createDiv();
-    box.createEl("h3", { text: "No eligible inklings" });
-    box.createEl("p", { text: "Shuffle a new deck or create a new inkling." });
+    box.createEl("h3", { text: "Done for today!" });
+    box.createEl("p", { text: "Reset today’s deck or create a new inkling." });
 
     const actions = box.createDiv({ cls: "controls" });
-    const shuffle = actions.createEl("button", { text: "Shuffle new deck", cls: "btn" });
-    shuffle.addEventListener("click", () => this.rebuildDeck());
+    const resetBtn = actions.createEl("button", { text: "Reset today’s deck", cls: "btn" });
+    resetBtn.addEventListener("click", async () => {
+      await this.plugin.resetTodayDeck();
+      await this.rebuildDeck();
+    });
 
     const create = actions.createEl("button", { text: "Create inkling", cls: "fab" });
     create.addEventListener("click", () => this.createInkling());
@@ -197,6 +215,7 @@ export class FocusView extends ItemView {
     // Immediately remove from current session deck to reflect in UI
     const removedPath = file.path;
     this.deck = this.deck.filter((f) => f.path !== removedPath);
+    await this.plugin.removeFromTodayDeck(removedPath);
     if (this.index >= this.deck.length) {
       // Move to empty state or clamp to last item
       this.index = this.deck.length; // empty when length==0, else last+1 shows empty
@@ -233,6 +252,73 @@ export class FocusView extends ItemView {
     this.nextBtnEl.style.display = show;
     this.addBtnEl.style.display = show;
     if (this.snoozeHeaderBtnEl) this.snoozeHeaderBtnEl.style.display = hasFile ? "inline-flex" : "none";
+    if (this.deleteHeaderBtnEl) this.deleteHeaderBtnEl.style.display = hasFile ? "inline-flex" : "none";
+  }
+
+  private updateCounterForActive() {
+    if (!this.counterEl) return;
+    const stats = this.plugin.getTodayDeckStats();
+    if (stats.total <= 0) {
+      this.counterEl.textContent = "";
+      return;
+    }
+    const position = Math.min(this.index + 1, stats.total);
+    this.counterEl.textContent = `${position} of ${stats.total} today`;
+    this.counterEl.style.display = "inline";
+  }
+
+  private updateCounterForEmpty() {
+    if (!this.counterEl) return;
+    this.counterEl.textContent = "";
+    this.counterEl.style.display = "none";
+  }
+
+  private async deleteCurrent() {
+    const file = this.deck[this.index];
+    if (!file) return;
+    const ok = await this.confirmDelete(`Delete "${file.basename}" permanently? This cannot be undone.`);
+    if (!ok) return;
+    const removedPath = file.path;
+    try {
+      await this.app.vault.delete(file);
+    } catch (e) {
+      // If delete fails, just return without mutating local state.
+      return;
+    }
+    await this.plugin.removeFromTodayDeck(removedPath);
+    this.deck = this.deck.filter((f) => f.path !== removedPath);
+    if (this.index >= this.deck.length) {
+      this.index = this.deck.length;
+    }
+    await this.renderCurrent();
+  }
+
+  private async confirmDelete(message: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    class ConfirmModal extends Modal {
+      onOpen() {
+        this.contentEl.createEl("h3", { text: "Delete note?" });
+        this.contentEl.createEl("p", { text: message });
+        new Setting(this.contentEl)
+          .addButton((b) =>
+            b
+              .setButtonText("Delete")
+              .setCta()
+              .onClick(() => {
+                this.close();
+                resolve(true);
+              })
+          )
+          .addButton((b) =>
+            b.setButtonText("Cancel").onClick(() => {
+              this.close();
+              resolve(false);
+            })
+          );
+      }
+    }
+    new ConfirmModal(this.app).open();
+  });
   }
 
   private async renameCurrentTitle() {
@@ -245,11 +331,14 @@ export class FocusView extends ItemView {
     const parent = file.parent?.path ?? "";
     const newPath = (parent ? parent + "/" : "") + base + ".md";
     try {
+      const oldPath = file.path;
       await this.app.vault.rename(file, newPath);
+      await this.plugin.replacePathInTodayDeck(oldPath, newPath);
     } catch (e) {
       // If rename fails (e.g., name exists), just re-render; no extra handling for now.
     }
-    await this.rebuildDeck();
+    // Keep current position; refresh deck from persisted list so the view updates title
+    this.deck = await this.plugin.getOrBuildTodayDeck();
     const idx = this.deck.findIndex((f) => f.path === newPath);
     if (idx >= 0) this.index = idx;
     await this.renderCurrent();

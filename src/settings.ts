@@ -4,12 +4,14 @@ export interface InklingsSettings {
   folder: string; // e.g., "Inklings"
   snoozeDays: number; // default 3
   dateHeaderLevel: string; // fixed default level
+  dailyCount: number; // number of cards per day
 }
 
 export const DEFAULT_SETTINGS: InklingsSettings = {
   folder: "Inklings",
   snoozeDays: 3,
   dateHeaderLevel: "######",
+  dailyCount: 10,
 };
 
 export class InklingsSettingTab extends PluginSettingTab {
@@ -49,6 +51,20 @@ export class InklingsSettingTab extends PluginSettingTab {
           .onChange(async (v) => {
             const n = Number(v);
             this.plugin.settings.snoozeDays = Number.isFinite(n) && n >= 0 ? n : 3;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Daily count")
+      .setDesc("How many inklings to include in today’s deck.")
+      .addText((t) =>
+        t
+          .setPlaceholder("10")
+          .setValue(String(this.plugin.settings.dailyCount))
+          .onChange(async (v) => {
+            const n = Number(v);
+            this.plugin.settings.dailyCount = Number.isFinite(n) && n >= 0 ? n : 10;
             await this.plugin.saveSettings();
           })
       );
