@@ -5,8 +5,21 @@
 }
 .inklings-focus .content {
   flex: 1 1 auto;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden; /* prevent horizontal scroll from wide content */
   padding: 1rem;
+  /* Allow breaking long tokens like URLs instead of causing horizontal scroll */
+  overflow-wrap: anywhere;
+  word-break: break-word; /* WebKit fallback */
+}
+/* Ensure wide elements don't expand container width */
+.inklings-focus .content img,
+.inklings-focus .content table {
+  max-width: 100%;
+}
+/* Long code lines can scroll horizontally within the block */
+.inklings-focus .content pre {
+  overflow-x: auto;
 }
 /* Ensure title actions can be anchored in the top-right */
 .inklings-focus .note-wrapper { position: relative; }
