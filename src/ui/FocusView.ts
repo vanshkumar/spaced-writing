@@ -182,13 +182,15 @@ export class FocusView extends ItemView {
     const path = `${folder}/${sanitizeFileName(title)}.md`;
     const body = ""; // body starts empty; title is filename only
     const file = await this.app.vault.create(path, body);
-    await this.rebuildDeck();
-    // Focus this file if present in deck
-    const idx = this.deck.findIndex((f) => f.path === file.path);
-    if (idx >= 0) {
-      this.index = idx;
-      await this.renderCurrent();
-    }
+
+    // Insert the new note into today's deck (persisted) and increase total N.
+    const insertAt = Math.min(this.index + 1, this.deck.length);
+    await this.plugin.insertIntoTodayDeck(file.path, insertAt, true);
+
+    // Update local deck and focus the new note without a full rebuild.
+    this.deck.splice(insertAt, 0, file);
+    this.index = insertAt;
+    await this.renderCurrent();
   }
 
   async openNewEntryModal() {

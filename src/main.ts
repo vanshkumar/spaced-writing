@@ -136,7 +136,12 @@ export default class InklingsFocusPlugin extends Plugin {
     if (!this.dailyDeck) return;
     const before = this.dailyDeck.paths.length;
     this.dailyDeck.paths = this.dailyDeck.paths.filter((p) => p !== path);
-    if (this.dailyDeck.paths.length !== before) await this.saveSettings();
+    const after = this.dailyDeck.paths.length;
+    if (after !== before) {
+      const currentTotal = typeof this.dailyDeck.total === 'number' ? this.dailyDeck.total : before;
+      this.dailyDeck.total = Math.max(0, currentTotal - 1);
+      await this.saveSettings();
+    }
   }
 
   async replacePathInTodayDeck(oldPath: string, newPath: string): Promise<void> {
@@ -150,6 +155,33 @@ export default class InklingsFocusPlugin extends Plugin {
       return p;
     });
     if (changed) await this.saveSettings();
+  }
+
+  async insertIntoTodayDeck(path: string, atIndex?: number, incrementTotal: boolean = true): Promise<void> {
+    const today = todayLocalISO();
+    if (!this.dailyDeck || this.dailyDeck.date !== today) {
+      // Ensure we have a deck for today; this persists a sampled deck
+      await this.getOrBuildTodayDeck();
+    }
+    if (!this.dailyDeck) {
+      // Fallback: initialize an empty deck for today
+      this.dailyDeck = { date: today, paths: [], total: 0 };
+    }
+
+    // Avoid duplicates
+    if (this.dailyDeck.paths.includes(path)) return;
+
+    const idx = atIndex === undefined
+      ? this.dailyDeck.paths.length
+      : Math.max(0, Math.min(atIndex, this.dailyDeck.paths.length));
+
+    // Capture total before mutating paths to avoid off-by-one when total is absent
+    const currentTotal = typeof this.dailyDeck.total === 'number' ? this.dailyDeck.total : this.dailyDeck.paths.length;
+    this.dailyDeck.paths.splice(idx, 0, path);
+    if (incrementTotal) {
+      this.dailyDeck.total = currentTotal + 1;
+    }
+    await this.saveSettings();
   }
 
   async resetTodayDeck(): Promise<void> {

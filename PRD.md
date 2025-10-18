@@ -52,11 +52,11 @@ Surface one inkling (note) at a time so you can quickly add a dated blurb, snooz
 
 - Snooze
   - Tap “zzz” → write/update `snoozed_until = today + N days` (default 3).
-  - Removes the note from today’s deck (persisted) and re-renders.
+  - Removes the note from today’s deck (persisted), decreases today’s total (N), and re-renders.
 
 - Delete
   - Tap red “X” → confirmation modal → permanently deletes the file.
-  - Removes the note from today’s deck and re-renders.
+  - Removes the note from today’s deck, decreases today’s total (N), and re-renders.
 
 - Navigation
   - “>” next advances within the deck; going past the last shows an empty state.
@@ -66,7 +66,7 @@ Surface one inkling (note) at a time so you can quickly add a dated blurb, snooz
 - Create Inkling
   - From top‑right “New” or empty state “Create inkling”.
   - Validates filename length (<=255 bytes including `.md`) and disallows invalid characters (`/ \ : * " < > |`). `?` is allowed.
-  - Creates `folder/<title>.md` with empty body. New notes do not join today’s deck; they’re eligible starting tomorrow.
+  - Creates `folder/<title>.md` with empty body, inserts it into today’s deck immediately after the current card, focuses it, and increases today’s total (N).
 
 - Rename Inkling
   - Tap the title to rename; same validation as creation.
@@ -78,7 +78,7 @@ Surface one inkling (note) at a time so you can quickly add a dated blurb, snooz
   - Excludes notes with `snoozed_until > today`.
 - Daily sample (persisted):
   - On first open each day (or date change), shuffle all eligible and take the first `dailyCount` (default 10). Persist only their paths and the total for that day.
-  - The day’s deck is stable; it does not backfill mid‑day if you snooze/delete/rename or add new notes.
+- The day’s deck is persisted (no auto-resample); creating adds to deck (+N), snooze/delete remove from deck (−N), and rename updates the stored path.
   - Snooze or delete removes the note from today’s deck. Rename updates the stored path.
 - Empty state appears when you advance past the last item or remove the remaining ones. “Reset today’s deck” replaces today’s sample with a fresh one.
 - Index‑based navigation; Previous only moves back within items already seen today.
@@ -101,7 +101,7 @@ Surface one inkling (note) at a time so you can quickly add a dated blurb, snooz
 ## 8) Edge cases & behavior
 
 - No eligible notes → empty state with “Done for today!”, “Reset today’s deck”, and “Create inkling”.
-- New notes created mid‑day do not appear until the next day’s deck.
+- New notes created mid‑day are added to today’s deck and increase N.
 - Malformed/missing date headers → adding an entry creates `###### <today>` at top.
 - Concurrent edits → last write wins.
 - Deck persistence: the daily deck is stored by paths; missing files are silently dropped.
